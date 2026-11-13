@@ -493,7 +493,13 @@ with st.sidebar:
 # 페이지 1: 문장 학습
 # ---------------------------------------------------------
 if page == "문장 학습":
-    st.title("한국어 → 자연스러운 영어")
+    # st.title("한국어 → 자연스러운 영어")
+    st.markdown(
+        "<h1 style='font-size: 1.5rem; font-weight: 700;'>"
+        "한국어 → 자연스러운 영어"
+        "</h1>",
+        unsafe_allow_html=True
+    )
     st.write("영어로 말하고 싶은 내용을 한국어로 입력해 보세요.")
 
     with st.form("translation_form"):
@@ -505,11 +511,12 @@ if page == "문장 학습":
         tone = st.selectbox(
             "원하는 대화 상황",
             [
+                "특정 상황 없이 가장 자연스러운 표현",
                 "일반적인 일상 회화",
                 "친구나 가족과 편하게 대화",
                 "직장 동료와 대화",
                 "상사·거래처 등에게 정중하게 대화",
-                "특정 상황 없이 가장 자연스러운 표현",
+                
             ],
         )
         submitted = st.form_submit_button(
