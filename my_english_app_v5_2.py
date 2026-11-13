@@ -500,10 +500,7 @@ if page == "문장 학습":
         "</h1>",
         unsafe_allow_html=True
     )
-<<<<<<< HEAD
-=======
-    
->>>>>>> origin/main
+
     st.write("영어로 말하고 싶은 내용을 한국어로 입력해 보세요.")
 
     with st.form("translation_form"):
