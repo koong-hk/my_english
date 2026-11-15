@@ -3,6 +3,7 @@ import re
 import json
 import sqlite3
 import hashlib
+import html
 import time
 from datetime import datetime, date
 from pathlib import Path
@@ -16,7 +17,7 @@ from openai import OpenAI, RateLimitError, APIStatusError, APIConnectionError, A
 # ---------------------------------------------------------
 APP_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=APP_DIR / ".env")
-APP_VERSION = "v5.1 - translation validation"
+APP_VERSION = "v5.3 - writing practice"
 DB_PATH = APP_DIR / "english_learning.db"
 MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 DAILY_API_LIMIT = max(1, int(os.getenv("DAILY_API_LIMIT", "30")))
@@ -83,7 +84,7 @@ def initialize_db():
 def make_cache_key(korean_input: str, tone: str) -> str:
     # 캐시 버전(v5): 번역 응답 형식 및 검증 로직 변경으로 이전 캐시와 분리
     normalized = " ".join(korean_input.strip().casefold().split())
-    raw = f"v5_{normalized}\n{tone.strip()}"
+    raw = f"v6_{normalized}\n{tone.strip()}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -214,6 +215,8 @@ Language separation is mandatory:
 - Never put Korean characters in any English-only field.
 - Translate the user's actual input. Do not copy the sample sentence as the answer.
 - Provide exactly five examples, each with both english and korean.
+- grammar_notes: provide 4 to 6 detailed Korean teaching notes (2-4 sentences each), covering sentence structure, key grammar, natural spoken nuances, common mistakes, and useful alternative expressions. Quote relevant English phrases when helpful.
+- In pattern, wrap replaceable slots in square brackets, e.g. "I want to [verb] because [reason]." Keep fixed words outside brackets.
 - Keep all requested keys and use strings for text fields and an array for grammar_notes/examples.
 """
 
@@ -235,7 +238,7 @@ Return a JSON object with exactly these keys and types:
   "pattern": "Reusable English sentence pattern",
   "pattern_meaning": "한국어 패턴 의미",
   "pattern_explanation": "한국어 설명",
-  "grammar_notes": ["한국어 문법 설명"],
+  "grammar_notes": ["핵심 표현의 의미, 문장 구조, 문법상 이유, 구어체 뉘앙스, 실수하기 쉬운 점, 추가 활용 예시를 포함한 상세 한국어 설명 1", "상세 한국어 설명 2", "상세 한국어 설명 3", "상세 한국어 설명 4"],
   "examples": [
     {{"english": "A natural English example", "korean": "한국어 뜻"}},
     {{"english": "A natural English example", "korean": "한국어 뜻"}},
@@ -493,31 +496,32 @@ with st.sidebar:
 # 페이지 1: 문장 학습
 # ---------------------------------------------------------
 if page == "문장 학습":
-    # st.title("한국어 → 자연스러운 영어")
-    st.markdown(
-        "<h1 style='font-size: 1.5rem; font-weight: 700;'>"
-        "한국어 → 자연스러운 영어"
-        "</h1>",
-        unsafe_allow_html=True
-    )
-
+    st.markdown("<h1 style='font-size:1.5rem;font-weight:700'>한국어 → 자연스러운 영어</h1>", unsafe_allow_html=True)
     st.write("영어로 말하고 싶은 내용을 한국어로 입력해 보세요.")
 
     with st.form("translation_form"):
-        korean_input = st.text_area(
-            "한국어 문장",
-            placeholder="예: 오늘은 너무 피곤해서 집에서 쉬고 싶어.",
-            height=110,
-        )
+        left_input, right_input = st.columns(2, gap="large")
+        with left_input:
+            korean_input = st.text_area(
+                "한국어 문장",
+                placeholder="예: 오늘은 너무 피곤해서 집에서 쉬고 싶어.",
+                height=150,
+            )
+        with right_input:
+            st.text_area(
+                "내가 직접 작성하는 영어 문장",
+                key="main_english_draft",
+                placeholder="정답을 보기 전에 영어로 작성해 보세요.",
+                height=150,
+            )
         tone = st.selectbox(
             "원하는 대화 상황",
             [
-                "특정 상황 없이 가장 자연스러운 표현",
                 "일반적인 일상 회화",
                 "친구나 가족과 편하게 대화",
                 "직장 동료와 대화",
                 "상사·거래처 등에게 정중하게 대화",
-                
+                "특정 상황 없이 가장 자연스러운 표현",
             ],
         )
         submitted = st.form_submit_button(
@@ -539,10 +543,13 @@ if page == "문장 학습":
                     st.session_state.current_result = result
                     st.session_state.current_korean = korean_input.strip()
                     st.session_state.current_tone = tone
+                    st.session_state.main_answer_revealed = False
                     if from_cache:
                         st.success("동일한 문장과 말투의 기존 결과를 불러왔습니다.")
                     else:
-                        st.success(f"학습 결과를 자동 저장했습니다. 추정 비용: ${generation_cost:.6f}")
+                        # API 비용은 화면에 표시하지 않습니다. 사용량 페이지에서는 계속 확인할 수 있습니다.
+                        # st.success(f"학습 결과를 자동 저장했습니다. 추정 비용: ${generation_cost:.6f}")
+                        st.success("학습 결과를 자동 저장했습니다.")
                 except Exception as e:
                     st.error(f"문장 생성 중 오류가 발생했습니다: {e}")
 
@@ -560,9 +567,18 @@ if page == "문장 학습":
         st.subheader("1. 가장 자연스러운 일상 회화")
         st.caption("실제 대화에서 바로 사용할 수 있는 표현")
         
-        # 기존 단어 클릭 레이아웃 대신 전체 너비로 회화 문장 표시
-        st.markdown(f"### :blue[{result.get('natural_translation', '')}]")
-        st.write(result.get("natural_korean", ""))
+        # 직접 작성한 문장과 정답을 비교할 수 있도록 정답은 기본적으로 숨깁니다.
+        if st.button(
+            "🙈 정답 숨기기" if st.session_state.get("main_answer_revealed", False) else "👀 정답 보기",
+            key="main_answer_toggle",
+        ):
+            st.session_state.main_answer_revealed = not st.session_state.get("main_answer_revealed", False)
+        if st.session_state.get("main_answer_revealed", False):
+            st.markdown(f"### :blue[{result.get('natural_translation', '')}]")
+            st.write(result.get("natural_korean", ""))
+            st.caption("위에 직접 작성한 영어 문장과 비교해 보세요.")
+        else:
+            st.info("영어 정답은 숨겨져 있습니다. 먼저 오른쪽 입력창에서 문장을 작성해 보세요.")
         
         # [주석 처리된 단어 클릭 기능 부분]
         # render_clickable_sentence(
@@ -573,7 +589,20 @@ if page == "문장 학습":
 
         st.markdown("---")
         st.markdown("**핵심 문장 패턴**")
-        st.code(result.get("pattern", ""), language="text")
+        # [교체 단어]는 빨강, 고정 문장 뼈대는 초록으로 구분합니다.
+        pattern_text = str(result.get("pattern", ""))
+        pattern_parts = re.split(r"(\[[^\[\]]+\])", pattern_text)
+        pattern_html = "".join(
+            f"<span style='color:{'#ff6262' if part.startswith('[') and part.endswith(']') else '#32c96c'}'>"
+            f"{html.escape(part)}</span>" for part in pattern_parts if part
+        )
+        st.markdown(
+            "<div style='background:#19212a;padding:16px;border-radius:8px;"
+            "font-family:monospace;font-size:1.15rem;font-weight:700;line-height:1.8;"
+            "white-space:pre-wrap;overflow-wrap:anywhere'>" + pattern_html + "</div>",
+            unsafe_allow_html=True,
+        )
+        st.caption("초록색: 고정 문장 뼈대 · 빨간색: 상황에 따라 바꾸는 단어 또는 표현")
         st.write(result.get("pattern_meaning", ""))
         st.info(result.get("pattern_explanation", ""))
 
@@ -635,8 +664,11 @@ if page == "문장 학습":
 
         st.divider()
         st.subheader("4. 문법 및 표현 학습")
-        for note in result.get("grammar_notes", []):
-            st.markdown(f"- {note}")
+        st.caption("문장 구조, 문법, 구어체 뉘앙스, 주의할 표현을 자세히 살펴보세요.")
+        for idx, note in enumerate(result.get("grammar_notes", []), start=1):
+            with st.container(border=True):
+                st.markdown(f"**학습 포인트 {idx}**")
+                st.write(note)
 
 # ---------------------------------------------------------
 # 페이지 2: 학습장
