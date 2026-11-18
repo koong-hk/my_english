@@ -39,6 +39,41 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Shared page spacing and title alignment across every menu.
+st.markdown(
+    """
+    <style>
+    :root {
+        --english-page-side-padding: 2.5rem;
+        --english-title-top: 5.25rem;
+        --english-sidebar-header: 3.75rem;
+    }
+    [data-testid="stMain"] .block-container {
+        padding-left: var(--english-page-side-padding) !important;
+        padding-right: var(--english-page-side-padding) !important;
+        padding-top: var(--english-title-top) !important;
+    }
+    [data-testid="stSidebarHeader"] {
+        height: var(--english-sidebar-header);
+        min-height: var(--english-sidebar-header);
+        box-sizing: border-box;
+        flex-shrink: 0;
+    }
+    [data-testid="stSidebarUserContent"] {
+        padding-top: calc(var(--english-title-top) - var(--english-sidebar-header)) !important;
+    }
+    [data-testid="stMain"] h1,
+    [data-testid="stSidebarUserContent"] h1 {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    @media (max-width: 640px) {
+        :root { --english-page-side-padding: 1.25rem; }
+    }
+    </style>
+    """, unsafe_allow_html=True,
+)
+
 with st.sidebar:
     st.title("🗣️ Natural English Lab")
     st.caption("한국어로 생각하고, 자연스러운 영어로 말하기")
@@ -594,7 +629,6 @@ def everyday_expression_page():
     dates = {r["study_date"] for r in month_rows}
     st.markdown(
         "<style>"
-        ".block-container:has(.st-key-compact_legacy_calendar) {padding-left: 1rem; padding-right: 1rem;}"
         ".st-key-compact_legacy_calendar [data-testid='stHorizontalBlock'] {gap: 2px;}"
         ".st-key-compact_legacy_calendar button {min-height: 26px; padding: 0;}"
         ".st-key-compact_legacy_calendar button p {font-size: 12px; white-space: nowrap;}"
