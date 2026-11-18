@@ -51,7 +51,6 @@ def render_daily_page():
             offset += len(batch)
         st.markdown(
             "<style>"
-            ".block-container:has(.st-key-compact_daily_calendar) {padding-left: 1rem; padding-right: 1rem;}"
             ".st-key-compact_daily_calendar [data-testid='stHorizontalBlock'] {gap: 2px;}"
             ".st-key-compact_daily_calendar button {min-height: 26px; padding: 0;}"
             ".st-key-compact_daily_calendar button p {font-size: 12px; white-space: nowrap;}"
