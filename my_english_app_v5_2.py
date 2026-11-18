@@ -592,8 +592,16 @@ def everyday_expression_page():
     year, month_number = map(int, month.split("-"))
     month_rows = [r for r in rows if r["study_date"].startswith(month)]
     dates = {r["study_date"] for r in month_rows}
-    calendar_column, _ = st.columns([1, 1], gap="large")
-    with calendar_column:
+    st.markdown(
+        "<style>"
+        ".st-key-compact_legacy_calendar [data-testid='stHorizontalBlock'] {gap: 2px;}"
+        ".st-key-compact_legacy_calendar button {min-height: 26px; padding: 0;}"
+        ".st-key-compact_legacy_calendar button p {font-size: 12px; white-space: nowrap;}"
+        ".st-key-compact_legacy_calendar [data-testid='stExpanderDetails'] {padding: 8px 5px;}"
+        "</style>", unsafe_allow_html=True,
+    )
+    calendar_column, list_column = st.columns([1, 3], gap="large")
+    with calendar_column, st.container(key="compact_legacy_calendar"):
         with st.expander("달력 · 접기 / 펼치기", expanded=True):
             marker_styles = "".join(
                 ".st-key-legacy_calendar_day_" + day.replace("-", "_") +
@@ -618,27 +626,28 @@ def everyday_expression_page():
                 'border-radius:50%;background:#2563eb;margin-right:6px"></span>'
                 '학습 기록이 있는 날짜', unsafe_allow_html=True,
             )
-    if month_rows:
-        table_rows = [{"날짜": r["study_date"], "영어 패턴표현": r["pattern"],
-                       "한글 표현": r["korean"]} for r in month_rows]
-        event = st.dataframe(
-            table_rows, hide_index=True, use_container_width=True,
-            on_select="rerun", selection_mode="single-row",
-            key=f"legacy_expression_list_{FAMILY_ACCOUNT}_{month}",
-            column_config={
-                "날짜": st.column_config.TextColumn("날짜", width="small"),
-                "영어 패턴표현": st.column_config.TextColumn("영어 패턴표현", width="large"),
-                "한글 표현": st.column_config.TextColumn("한글 표현", width="large"),
-            },
-        )
-        selection_key = f"last_legacy_expression_row_{FAMILY_ACCOUNT}_{month}"
-        chosen = list(event.selection.rows)
-        if chosen != st.session_state.get(selection_key, []):
-            st.session_state[selection_key] = chosen
-            if chosen and chosen[0] < len(month_rows):
-                st.session_state.everyday_selected = month_rows[chosen[0]]["study_date"]
-    else:
-        st.info("이달에 저장된 학습 기록이 없습니다.")
+    with list_column:
+        if month_rows:
+            table_rows = [{"날짜": r["study_date"], "영어 패턴표현": r["pattern"],
+                           "한글 표현": r["korean"]} for r in month_rows]
+            event = st.dataframe(
+                table_rows, hide_index=True, use_container_width=True,
+                on_select="rerun", selection_mode="single-row",
+                key=f"legacy_expression_list_{FAMILY_ACCOUNT}_{month}",
+                column_config={
+                    "날짜": st.column_config.TextColumn("날짜", width="small"),
+                    "영어 패턴표현": st.column_config.TextColumn("영어 패턴표현", width="large"),
+                    "한글 표현": st.column_config.TextColumn("한글 표현", width="large"),
+                },
+            )
+            selection_key = f"last_legacy_expression_row_{FAMILY_ACCOUNT}_{month}"
+            chosen = list(event.selection.rows)
+            if chosen != st.session_state.get(selection_key, []):
+                st.session_state[selection_key] = chosen
+                if chosen and chosen[0] < len(month_rows):
+                    st.session_state.everyday_selected = month_rows[chosen[0]]["study_date"]
+        else:
+            st.info("이달에 저장된 학습 기록이 없습니다.")
     selected = st.session_state.get("everyday_selected", "")
     if not selected.startswith(month):
         selected = month_rows[0]["study_date"] if month_rows else ""
