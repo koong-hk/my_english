@@ -51,13 +51,14 @@ def render_daily_page():
             offset += len(batch)
         st.markdown(
             "<style>"
+            ".block-container:has(.st-key-compact_daily_calendar) {padding-left: 1rem; padding-right: 1rem;}"
             ".st-key-compact_daily_calendar [data-testid='stHorizontalBlock'] {gap: 2px;}"
             ".st-key-compact_daily_calendar button {min-height: 26px; padding: 0;}"
             ".st-key-compact_daily_calendar button p {font-size: 12px; white-space: nowrap;}"
             ".st-key-compact_daily_calendar [data-testid='stExpanderDetails'] {padding: 8px 5px;}"
             "</style>", unsafe_allow_html=True,
         )
-        calendar_column, list_column = st.columns([1, 3], gap='large')
+        calendar_column, list_column = st.columns([1, 3], gap='small')
         with calendar_column, st.container(key="compact_daily_calendar"):
             with st.expander('달력 · 접기 / 펼치기', expanded=True):
                 marker_styles = ''.join(
