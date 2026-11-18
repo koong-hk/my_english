@@ -776,21 +776,24 @@ if page == "문장 학습":
                 placeholder="정답을 보기 전에 영어로 작성해 보세요.",
                 height=150,
             )
-        tone = st.selectbox(
-            "원하는 대화 상황",
-            [
-                "일반적인 일상 회화",
-                "친구나 가족과 편하게 대화",
-                "직장 동료와 대화",
-                "상사·거래처 등에게 정중하게 대화",
-                "특정 상황 없이 가장 자연스러운 표현",
-            ],
-        )
-        submitted = st.form_submit_button(
-            "✨ 자연스러운 영어 문장 만들기",
-            type="primary",
-            use_container_width=True,
-        )
+        tone_column, submit_column = st.columns([6, 4], gap="small", vertical_alignment="bottom")
+        with tone_column:
+            tone = st.selectbox(
+                "원하는 대화 상황",
+                [
+                    "일반적인 일상 회화",
+                    "친구나 가족과 편하게 대화",
+                    "직장 동료와 대화",
+                    "상사·거래처 등에게 정중하게 대화",
+                    "특정 상황 없이 가장 자연스러운 표현",
+                ],
+            )
+        with submit_column:
+            submitted = st.form_submit_button(
+                "✨ 자연스러운 영어 문장 만들기",
+                type="primary",
+                use_container_width=True,
+            )
 
     if submitted:
         st.session_state.pop("current_result", None)
