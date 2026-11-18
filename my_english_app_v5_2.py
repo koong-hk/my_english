@@ -41,8 +41,8 @@ st.set_page_config(
 
 from family_login import require_family_login
 FAMILY_ACCOUNT = require_family_login()
-if FAMILY_ACCOUNT == "son":
-    DB_PATH = APP_DIR / "english_learning_son.db"
+if FAMILY_ACCOUNT != "father":
+    DB_PATH = APP_DIR / f"english_learning_{FAMILY_ACCOUNT}.db"
 
 # ---------------------------------------------------------
 # 데이터베이스
@@ -577,7 +577,7 @@ def everyday_expression_page():
             ("2026-11-17", "Could you use [A] instead of [B]?", "일반 우유 대신 귀리 우유로 바꿔 주실 수 있나요?", "Could you use oat milk instead of regular milk?", "Could you change general milk to oatmeal milk?", "general milk → regular milk, oatmeal milk → oat milk. use A instead of B는 B 대신 A를 쓰다는 뜻입니다."),
             ("2026-11-18", "Could you [verb + request]?", "조금만 더 천천히 다시 말씀해 주시겠어요?", "Could you say that again a little more slowly?", "Could you tell me again a little bit slowly.", "say that again은 방금 한 말의 반복 요청입니다. 조금 더 천천히는 a little more slowly이며 요청 끝에는 물음표를 씁니다."),
         ]
-        if FAMILY_ACCOUNT == "son":
+        if FAMILY_ACCOUNT != "father":
             seeds = []
         conn.executemany("INSERT OR IGNORE INTO everyday_expressions VALUES (?, ?, ?, ?, ?, ?)", seeds)
         rows = [dict(r) for r in conn.execute("SELECT * FROM everyday_expressions ORDER BY study_date DESC")]
