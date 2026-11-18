@@ -39,6 +39,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+from family_login import require_family_login
+FAMILY_ACCOUNT = require_family_login()
+if FAMILY_ACCOUNT == "son":
+    DB_PATH = APP_DIR / "english_learning_son.db"
+
 # ---------------------------------------------------------
 # 데이터베이스
 # ---------------------------------------------------------
@@ -499,6 +504,8 @@ def everyday_expression_page():
             ("2026-11-17", "Could you use [A] instead of [B]?", "일반 우유 대신 귀리 우유로 바꿔 주실 수 있나요?", "Could you use oat milk instead of regular milk?", "Could you change general milk to oatmeal milk?", "general milk → regular milk, oatmeal milk → oat milk. use A instead of B는 B 대신 A를 쓰다는 뜻입니다."),
             ("2026-11-18", "Could you [verb + request]?", "조금만 더 천천히 다시 말씀해 주시겠어요?", "Could you say that again a little more slowly?", "Could you tell me again a little bit slowly.", "say that again은 방금 한 말의 반복 요청입니다. 조금 더 천천히는 a little more slowly이며 요청 끝에는 물음표를 씁니다."),
         ]
+        if FAMILY_ACCOUNT == "son":
+            seeds = []
         conn.executemany("INSERT OR IGNORE INTO everyday_expressions VALUES (?, ?, ?, ?, ?, ?)", seeds)
         rows = [dict(r) for r in conn.execute("SELECT * FROM everyday_expressions ORDER BY study_date DESC")]
     st.title("Everyday Expression")
@@ -566,7 +573,7 @@ with st.sidebar:
     st.caption("한국어로 생각하고, 자연스러운 영어로 말하기")
     page = st.radio(
         "메뉴",
-        ["문장 학습", "Everyday Expression", "나의 학습장", "API 사용량", "사용 안내"],
+        ["문장 학습", "Everyday Expression", "이전 Everyday 기록", "나의 학습장", "API 사용량", "사용 안내"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -754,6 +761,10 @@ if page == "문장 학습":
 # 페이지 2: 학습장
 # ---------------------------------------------------------
 elif page == "Everyday Expression":
+    from daily_page import render_daily_page
+    render_daily_page()
+
+elif page == "이전 Everyday 기록":
     everyday_expression_page()
 
 elif page == "나의 학습장":
