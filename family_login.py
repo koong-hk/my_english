@@ -34,6 +34,7 @@ def require_family_login():
         st.session_state.family_account = 'guest'
         with st.sidebar:
             st.caption('공용 계정의 학습 기록은 함께 사용합니다.')
+            st.caption('PW: Birthday')
         return 'guest'
     if selected != account:
         # A private account is assigned only after successful PIN verification.
