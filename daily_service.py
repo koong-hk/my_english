@@ -133,7 +133,7 @@ class DailyService:
             raise
 
     def submit(self, day, draft, profile):
-        if profile not in ('father', 'son'):
+        if profile not in ('father', 'son', 'guest'):
             raise ValueError('로그인 계정을 확인해 주세요.')
         draft = draft.strip()
         if not draft or len(draft) > 3000:
