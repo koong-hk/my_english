@@ -6,7 +6,7 @@ import streamlit as st
 from daily_service import DailyService
 
 
-ACCOUNT_NAMES = {'guest': 'family', 'father': 'Daddy', 'son': '도윤'}
+ACCOUNT_NAMES = {'guest': 'Family', 'father': 'Daddy', 'son': '도윤'}
 
 
 def require_family_login():
