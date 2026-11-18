@@ -420,6 +420,61 @@ def generate_english(korean_text: str, tone: str):
 
 
 # ---------------------------------------------------------
+# 화면 유틸리티 (단어 클릭 관련 기능)
+# ---------------------------------------------------------
+
+def clean_word(token: str):
+    return re.sub(r"^[^A-Za-z']+|[^A-Za-z']+$", "", token).lower()
+
+def render_clickable_sentence(sentence: str, glossary: list, key_prefix: str):
+    tokens = re.findall(r"[A-Za-z]+(?:['][A-Za-z]+)?", sentence)
+    words = [t for t in tokens if clean_word(t)]
+    if not words:
+        st.write(sentence)
+        return
+    st.caption("영어 문장의 단어를 클릭하면 오른쪽에 뜻과 사용법이 표시됩니다.")
+    cols = st.columns(min(len(tokens), 8))
+    for i, token in enumerate(tokens):
+        if not clean_word(token):
+            continue
+        col = cols[i % len(cols)]
+        label = token
+        if col.button(label, key=f"{key_prefix}_{i}_{clean_word(token)}", use_container_width=True):
+            st.session_state.selected_word = clean_word(token)
+            st.session_state.selected_word_source = sentence
+
+def render_word_detail(result: dict):
+    selected = st.session_state.get("selected_word", "")
+    if not selected:
+        st.info("왼쪽 영어 문장에서 단어를 클릭해 보세요.")
+        return
+    glossary = result.get("word_glossary", [])
+    match = None
+    for item in glossary:
+        if clean_word(str(item.get("word", ""))) == selected:
+            match = item
+            break
+    st.subheader(f"📖 {selected}")
+    if match:
+        st.markdown(f"**기본 뜻:** {match.get('meaning', '설명 없음')}")
+        st.markdown(f"**품사:** {match.get('part_of_speech', '정보 없음')}")
+        st.markdown(f"**발음기호:** {match.get('pronunciation', '정보 없음')}")
+        st.markdown("**현재 문장에서의 의미**")
+        st.write(match.get("context_meaning", "설명 없음"))
+        if match.get("example"):
+            st.markdown("**추가 예문**")
+            st.write(match["example"])
+            st.caption(match.get("example_korean", ""))
+        collocations = match.get("collocations", [])
+        if collocations:
+            st.markdown("**자주 함께 쓰는 표현**")
+            for phrase in collocations:
+                st.write(f"• {phrase}")
+    else:
+        st.warning("이 단어의 상세 설명이 결과에 포함되지 않았습니다.")
+
+
+# ---------------------------------------------------------
 # 화면 유틸리티 (단어 클릭 관련 기능 주석 처리)
 # ---------------------------------------------------------
 # def clean_word(token: str):
