@@ -49,8 +49,16 @@ def render_daily_page():
             if len(batch) < 500:
                 break
             offset += len(batch)
-        calendar_column, _ = st.columns([1, 1], gap='large')
-        with calendar_column:
+        st.markdown(
+            "<style>"
+            ".st-key-compact_daily_calendar [data-testid='stHorizontalBlock'] {gap: 2px;}"
+            ".st-key-compact_daily_calendar button {min-height: 26px; padding: 0;}"
+            ".st-key-compact_daily_calendar button p {font-size: 12px; white-space: nowrap;}"
+            ".st-key-compact_daily_calendar [data-testid='stExpanderDetails'] {padding: 8px 5px;}"
+            "</style>", unsafe_allow_html=True,
+        )
+        calendar_column, list_column = st.columns([1, 3], gap='large')
+        with calendar_column, st.container(key="compact_daily_calendar"):
             with st.expander('달력 · 접기 / 펼치기', expanded=True):
                 marker_styles = ''.join(
                     '.st-key-calendar_day_' + day.replace('-', '_') +
@@ -76,27 +84,28 @@ def render_daily_page():
                     'border-radius:50%;background:#2563eb;margin-right:6px"></span>'
                     '현재 계정의 답변이 저장된 날짜', unsafe_allow_html=True,
                 )
-        if month_rows:
-            table_rows = [{'날짜': r['study_date'], '영어 패턴표현': r['pattern'],
-                           '한글 표현': r['korean']} for r in month_rows]
-            event = st.dataframe(
-                table_rows, hide_index=True, use_container_width=True,
-                on_select='rerun', selection_mode='single-row',
-                key=f'expression_list_{profile}_{month}',
-                column_config={
-                    '날짜': st.column_config.TextColumn('날짜', width='small'),
-                    '영어 패턴표현': st.column_config.TextColumn('영어 패턴표현', width='large'),
-                    '한글 표현': st.column_config.TextColumn('한글 표현', width='large'),
-                },
-            )
-            selection_key = f'last_expression_row_{profile}_{month}'
-            chosen = list(event.selection.rows)
-            if chosen != st.session_state.get(selection_key, []):
-                st.session_state[selection_key] = chosen
-                if chosen and chosen[0] < len(month_rows):
-                    st.session_state.cloud_selected = month_rows[chosen[0]]['study_date']
-        if not month_rows:
-            st.info('이달에 생성된 문제가 없습니다. GitHub Actions 실행 상태를 확인해 주세요.')
+        with list_column:
+            if month_rows:
+                table_rows = [{'날짜': r['study_date'], '영어 패턴표현': r['pattern'],
+                               '한글 표현': r['korean']} for r in month_rows]
+                event = st.dataframe(
+                    table_rows, hide_index=True, use_container_width=True,
+                    on_select='rerun', selection_mode='single-row',
+                    key=f'expression_list_{profile}_{month}',
+                    column_config={
+                        '날짜': st.column_config.TextColumn('날짜', width='small'),
+                        '영어 패턴표현': st.column_config.TextColumn('영어 패턴표현', width='large'),
+                        '한글 표현': st.column_config.TextColumn('한글 표현', width='large'),
+                    },
+                )
+                selection_key = f'last_expression_row_{profile}_{month}'
+                chosen = list(event.selection.rows)
+                if chosen != st.session_state.get(selection_key, []):
+                    st.session_state[selection_key] = chosen
+                    if chosen and chosen[0] < len(month_rows):
+                        st.session_state.cloud_selected = month_rows[chosen[0]]['study_date']
+            if not month_rows:
+                st.info('이달에 생성된 문제가 없습니다. GitHub Actions 실행 상태를 확인해 주세요.')
         selected = st.session_state.get('cloud_selected', '')
         if not selected.startswith(month):
             selected = month_rows[0]['study_date'] if month_rows else ''
