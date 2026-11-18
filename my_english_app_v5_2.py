@@ -515,19 +515,56 @@ def everyday_expression_page():
     year, month_number = map(int, month.split("-"))
     month_rows = [r for r in rows if r["study_date"].startswith(month)]
     dates = {r["study_date"] for r in month_rows}
-    for col, name in zip(st.columns(7), ["월", "화", "수", "목", "금", "토", "일"]):
-        col.markdown(f"**{name}**")
-    for week in calendar.monthcalendar(year, month_number):
-        for col, day in zip(st.columns(7), week):
-            if day:
-                iso = date(year, month_number, day).isoformat()
-                if col.button(f"{day} {'●' if iso in dates else ''}", key=f"calendar_{iso}", use_container_width=True):
-                    st.session_state.everyday_selected = iso
-    st.caption("● 학습 기록이 있는 날짜")
-    for row in month_rows:
-        if st.button(f"{row['study_date']}  ·  {row['pattern']}", key=f"expression_{row['study_date']}", use_container_width=True):
-            st.session_state.everyday_selected = row["study_date"]
-    selected = st.session_state.get("everyday_selected", month_rows[0]["study_date"] if month_rows else "")
+    calendar_column, _ = st.columns([1, 1], gap="large")
+    with calendar_column:
+        with st.expander("달력 · 접기 / 펼치기", expanded=True):
+            marker_styles = "".join(
+                ".st-key-legacy_calendar_day_" + day.replace("-", "_") +
+                ' button p::after {content:"";display:inline-block;width:6px;'
+                'height:6px;border-radius:50%;background:#2563eb;'
+                'margin-left:4px;vertical-align:middle;}'
+                for day in dates
+            )
+            st.markdown("<style>" + marker_styles + "</style>", unsafe_allow_html=True)
+            for col, name in zip(st.columns(7, gap="small"), ["월", "화", "수", "목", "금", "토", "일"]):
+                col.markdown(f"**{name}**")
+            for week in calendar.monthcalendar(year, month_number):
+                for col, day in zip(st.columns(7, gap="small"), week):
+                    if day:
+                        iso = date(year, month_number, day).isoformat()
+                        with col:
+                            with st.container(key="legacy_calendar_day_" + iso.replace("-", "_")):
+                                if st.button(str(day), key=f"calendar_{iso}", use_container_width=True):
+                                    st.session_state.everyday_selected = iso
+            st.markdown(
+                '<span style="display:inline-block;width:6px;height:6px;'
+                'border-radius:50%;background:#2563eb;margin-right:6px"></span>'
+                '학습 기록이 있는 날짜', unsafe_allow_html=True,
+            )
+    if month_rows:
+        table_rows = [{"날짜": r["study_date"], "영어 패턴표현": r["pattern"],
+                       "한글 표현": r["korean"]} for r in month_rows]
+        event = st.dataframe(
+            table_rows, hide_index=True, use_container_width=True,
+            on_select="rerun", selection_mode="single-row",
+            key=f"legacy_expression_list_{FAMILY_ACCOUNT}_{month}",
+            column_config={
+                "날짜": st.column_config.TextColumn("날짜", width="small"),
+                "영어 패턴표현": st.column_config.TextColumn("영어 패턴표현", width="large"),
+                "한글 표현": st.column_config.TextColumn("한글 표현", width="large"),
+            },
+        )
+        selection_key = f"last_legacy_expression_row_{FAMILY_ACCOUNT}_{month}"
+        chosen = list(event.selection.rows)
+        if chosen != st.session_state.get(selection_key, []):
+            st.session_state[selection_key] = chosen
+            if chosen and chosen[0] < len(month_rows):
+                st.session_state.everyday_selected = month_rows[chosen[0]]["study_date"]
+    else:
+        st.info("이달에 저장된 학습 기록이 없습니다.")
+    selected = st.session_state.get("everyday_selected", "")
+    if not selected.startswith(month):
+        selected = month_rows[0]["study_date"] if month_rows else ""
     record = next((r for r in month_rows if r["study_date"] == selected), None)
     if record:
         st.subheader(record["study_date"])
