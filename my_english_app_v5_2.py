@@ -762,7 +762,7 @@ if page == "문장 학습":
     st.write("영어로 말하고 싶은 내용을 한국어로 입력해 보세요.")
 
     with st.form("translation_form"):
-        left_input, right_input = st.columns(2, gap="large")
+        left_input, right_input = st.columns([1, 1], gap="small")
         with left_input:
             korean_input = st.text_area(
                 "한국어 문장",
@@ -776,7 +776,7 @@ if page == "문장 학습":
                 placeholder="정답을 보기 전에 영어로 작성해 보세요.",
                 height=150,
             )
-        tone_column, submit_column = st.columns([6, 4], gap="small", vertical_alignment="bottom")
+        tone_column, submit_column = st.columns([1, 1], gap="small", vertical_alignment="bottom")
         with tone_column:
             tone = st.selectbox(
                 "원하는 대화 상황",
