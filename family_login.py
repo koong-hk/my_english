@@ -24,6 +24,7 @@ def require_family_login():
             '사용자 계정', list(ACCOUNT_NAMES),
             index=list(ACCOUNT_NAMES).index(account),
             format_func=ACCOUNT_NAMES.get, key='family_account_picker',
+            horizontal=True,
         )
     if selected == 'guest':
         if account != 'guest':
