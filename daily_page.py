@@ -1,5 +1,4 @@
 import calendar
-import hmac
 import html
 import os
 import re
@@ -36,20 +35,66 @@ def render_daily_page():
         year, number = map(int, month.split('-'))
         month_rows = [r for r in rows if r['study_date'].startswith(month)]
         dates = {r['study_date'] for r in month_rows}
-        for col, name in zip(st.columns(7), ['월', '화', '수', '목', '금', '토', '일']):
-            col.write(name)
-        for week in calendar.monthcalendar(year, number):
-            for col, day in zip(st.columns(7), week):
-                if day:
-                    iso = date(year, number, day).isoformat()
-                    if col.button(f"{day}{' ●' if iso in dates else ''}", key='cloud_' + iso,
-                                  use_container_width=True):
-                        st.session_state.cloud_selected = iso
-        st.caption('● 문제가 준비된 날짜')
-        for row in month_rows:
-            if st.button(f"{row['study_date']} · {row['pattern']}", key='cloud_list_' + row['study_date'],
-                         use_container_width=True):
-                st.session_state.cloud_selected = row['study_date']
+        # A marker represents this account's submitted study record.
+        learned_dates = set()
+        offset = 0
+        while True:
+            batch = service.rows(
+                'english_submissions', select='study_date', profile_id='eq.' + profile,
+                study_date='gte.' + month + '-01',
+                **{'and': f'(study_date.lt.{date(year + number // 12, number % 12 + 1, 1).isoformat()})'},
+                order='study_date.asc,id.asc', offset=str(offset), limit='500',
+            )
+            learned_dates.update(r['study_date'] for r in batch)
+            if len(batch) < 500:
+                break
+            offset += len(batch)
+        calendar_column, _ = st.columns([1, 1], gap='large')
+        with calendar_column:
+            with st.expander('달력 · 접기 / 펼치기', expanded=True):
+                marker_styles = ''.join(
+                    '.st-key-calendar_day_' + day.replace('-', '_') +
+                    ' button p::after {content:""; display:inline-block; width:6px;'
+                    'height:6px; border-radius:50%; background:#2563eb;'
+                    'margin-left:4px; vertical-align:middle;}'
+                    for day in learned_dates
+                )
+                st.markdown('<style>' + marker_styles + '</style>', unsafe_allow_html=True)
+                for col, name in zip(st.columns(7, gap='small'), ['월', '화', '수', '목', '금', '토', '일']):
+                    col.markdown(f'**{name}**')
+                for week in calendar.monthcalendar(year, number):
+                    for col, day in zip(st.columns(7, gap='small'), week):
+                        if day:
+                            iso = date(year, number, day).isoformat()
+                            with col:
+                                with st.container(key='calendar_day_' + iso.replace('-', '_')):
+                                    if st.button(str(day), key='cloud_' + iso,
+                                                 use_container_width=True):
+                                        st.session_state.cloud_selected = iso
+                st.markdown(
+                    '<span style="display:inline-block;width:6px;height:6px;'
+                    'border-radius:50%;background:#2563eb;margin-right:6px"></span>'
+                    '현재 계정의 답변이 저장된 날짜', unsafe_allow_html=True,
+                )
+        if month_rows:
+            table_rows = [{'날짜': r['study_date'], '영어 패턴표현': r['pattern'],
+                           '한글 표현': r['korean']} for r in month_rows]
+            event = st.dataframe(
+                table_rows, hide_index=True, use_container_width=True,
+                on_select='rerun', selection_mode='single-row',
+                key=f'expression_list_{profile}_{month}',
+                column_config={
+                    '날짜': st.column_config.TextColumn('날짜', width='small'),
+                    '영어 패턴표현': st.column_config.TextColumn('영어 패턴표현', width='large'),
+                    '한글 표현': st.column_config.TextColumn('한글 표현', width='large'),
+                },
+            )
+            selection_key = f'last_expression_row_{profile}_{month}'
+            chosen = list(event.selection.rows)
+            if chosen != st.session_state.get(selection_key, []):
+                st.session_state[selection_key] = chosen
+                if chosen and chosen[0] < len(month_rows):
+                    st.session_state.cloud_selected = month_rows[chosen[0]]['study_date']
         if not month_rows:
             st.info('이달에 생성된 문제가 없습니다. GitHub Actions 실행 상태를 확인해 주세요.')
         selected = st.session_state.get('cloud_selected', '')
