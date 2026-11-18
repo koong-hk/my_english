@@ -420,61 +420,6 @@ def generate_english(korean_text: str, tone: str):
 
 
 # ---------------------------------------------------------
-# 화면 유틸리티 (단어 클릭 관련 기능)
-# ---------------------------------------------------------
-
-def clean_word(token: str):
-    return re.sub(r"^[^A-Za-z']+|[^A-Za-z']+$", "", token).lower()
-
-def render_clickable_sentence(sentence: str, glossary: list, key_prefix: str):
-    tokens = re.findall(r"[A-Za-z]+(?:['][A-Za-z]+)?", sentence)
-    words = [t for t in tokens if clean_word(t)]
-    if not words:
-        st.write(sentence)
-        return
-    st.caption("영어 문장의 단어를 클릭하면 오른쪽에 뜻과 사용법이 표시됩니다.")
-    cols = st.columns(min(len(tokens), 8))
-    for i, token in enumerate(tokens):
-        if not clean_word(token):
-            continue
-        col = cols[i % len(cols)]
-        label = token
-        if col.button(label, key=f"{key_prefix}_{i}_{clean_word(token)}", use_container_width=True):
-            st.session_state.selected_word = clean_word(token)
-            st.session_state.selected_word_source = sentence
-
-def render_word_detail(result: dict):
-    selected = st.session_state.get("selected_word", "")
-    if not selected:
-        st.info("왼쪽 영어 문장에서 단어를 클릭해 보세요.")
-        return
-    glossary = result.get("word_glossary", [])
-    match = None
-    for item in glossary:
-        if clean_word(str(item.get("word", ""))) == selected:
-            match = item
-            break
-    st.subheader(f"📖 {selected}")
-    if match:
-        st.markdown(f"**기본 뜻:** {match.get('meaning', '설명 없음')}")
-        st.markdown(f"**품사:** {match.get('part_of_speech', '정보 없음')}")
-        st.markdown(f"**발음기호:** {match.get('pronunciation', '정보 없음')}")
-        st.markdown("**현재 문장에서의 의미**")
-        st.write(match.get("context_meaning", "설명 없음"))
-        if match.get("example"):
-            st.markdown("**추가 예문**")
-            st.write(match["example"])
-            st.caption(match.get("example_korean", ""))
-        collocations = match.get("collocations", [])
-        if collocations:
-            st.markdown("**자주 함께 쓰는 표현**")
-            for phrase in collocations:
-                st.write(f"• {phrase}")
-    else:
-        st.warning("이 단어의 상세 설명이 결과에 포함되지 않았습니다.")
-
-
-# ---------------------------------------------------------
 # 화면 유틸리티 (단어 클릭 관련 기능 주석 처리)
 # ---------------------------------------------------------
 # def clean_word(token: str):
@@ -536,12 +481,92 @@ def render_word_detail(result: dict):
 # ---------------------------------------------------------
 # 사이드바
 # ---------------------------------------------------------
+
+# 날짜별 표현은 기존 학습 데이터와 같은 DB에 독립적으로 저장합니다.
+def everyday_expression_page():
+    import calendar
+    from zoneinfo import ZoneInfo
+
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    with get_connection() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS everyday_expressions (
+            study_date TEXT PRIMARY KEY, pattern TEXT NOT NULL,
+            korean TEXT NOT NULL, content TEXT NOT NULL,
+            draft TEXT NOT NULL DEFAULT '', feedback TEXT NOT NULL DEFAULT '')""")
+        seeds = [
+            ("2026-11-15", "I'm almost [state/place]", "잠깐만, 나 거의 다 왔어.", "Hold on, I'm almost there.", "Hold on, I'm almost there.", "자연스러운 표현입니다. almost는 거의 도달한 상태를 나타냅니다."),
+            ("2026-11-16", "I'll [action] and get back to you.", "일정 확인하고 다시 알려줄게요.", "I'll check my schedule and get back to you.", "I will inform you after check the schedule.", "after check → after I check 또는 after checking. 내 일정은 my schedule로 표현합니다."),
+            ("2026-11-17", "Could you use [A] instead of [B]?", "일반 우유 대신 귀리 우유로 바꿔 주실 수 있나요?", "Could you use oat milk instead of regular milk?", "Could you change general milk to oatmeal milk?", "general milk → regular milk, oatmeal milk → oat milk. use A instead of B는 B 대신 A를 쓰다는 뜻입니다."),
+            ("2026-11-18", "Could you [verb + request]?", "조금만 더 천천히 다시 말씀해 주시겠어요?", "Could you say that again a little more slowly?", "Could you tell me again a little bit slowly.", "say that again은 방금 한 말의 반복 요청입니다. 조금 더 천천히는 a little more slowly이며 요청 끝에는 물음표를 씁니다."),
+        ]
+        conn.executemany("INSERT OR IGNORE INTO everyday_expressions VALUES (?, ?, ?, ?, ?, ?)", seeds)
+        rows = [dict(r) for r in conn.execute("SELECT * FROM everyday_expressions ORDER BY study_date DESC")]
+    st.title("Everyday Expression")
+    st.caption("날짜별 영어 표현과 직접 작성한 문장, 피드백을 모아 봅니다.")
+    months = sorted({r["study_date"][:7] for r in rows} | {today.strftime("%Y-%m")}, reverse=True)
+    month = st.selectbox("학습 월", months)
+    year, month_number = map(int, month.split("-"))
+    month_rows = [r for r in rows if r["study_date"].startswith(month)]
+    dates = {r["study_date"] for r in month_rows}
+    for col, name in zip(st.columns(7), ["월", "화", "수", "목", "금", "토", "일"]):
+        col.markdown(f"**{name}**")
+    for week in calendar.monthcalendar(year, month_number):
+        for col, day in zip(st.columns(7), week):
+            if day:
+                iso = date(year, month_number, day).isoformat()
+                if col.button(f"{day} {'●' if iso in dates else ''}", key=f"calendar_{iso}", use_container_width=True):
+                    st.session_state.everyday_selected = iso
+    st.caption("● 학습 기록이 있는 날짜")
+    for row in month_rows:
+        if st.button(f"{row['study_date']}  ·  {row['pattern']}", key=f"expression_{row['study_date']}", use_container_width=True):
+            st.session_state.everyday_selected = row["study_date"]
+    selected = st.session_state.get("everyday_selected", month_rows[0]["study_date"] if month_rows else "")
+    record = next((r for r in month_rows if r["study_date"] == selected), None)
+    if record:
+        st.subheader(record["study_date"])
+        st.write(record["korean"])
+        parts = re.split(r"(\[[^\[\]]+\])", record["pattern"])
+        markup = "".join("<span style='color:" + ("#dc2626" if part.startswith("[") else "#15803d") + "'>" + html.escape(part) + "</span>" for part in parts)
+        st.markdown(markup, unsafe_allow_html=True)
+        st.caption("초록색은 고정 부분, 빨간색은 바꿔 쓰는 부분입니다.")
+        with st.expander("영어 표현 · 예문 · 문법 설명", expanded=True):
+            st.markdown(record["content"])
+        st.markdown("**내가 작성한 문장**")
+        st.write(record["draft"])
+        st.markdown("**피드백**")
+        st.markdown(record["feedback"])
+    elif selected.startswith(month):
+        st.info("선택한 날짜에 저장된 학습 기록이 없습니다.")
+    with st.expander("학습 기록 추가 / 수정"):
+        st.caption("ChatGPT의 해당 날짜 학습 내용과 피드백을 복사해 저장하세요. 같은 날짜로 저장하면 해당 기록을 수정합니다.")
+        base = record or {}
+        with st.form("everyday_editor"):
+            study_day = st.date_input("학습 날짜", value=date.fromisoformat(base["study_date"]) if base else today)
+            pattern = st.text_input("핵심 패턴 · 교체 부분은 [대괄호]", value=base.get("pattern", ""))
+            korean = st.text_area("한국어 문제", value=base.get("korean", ""))
+            content = st.text_area("영어 표현 · 격식체 · 예문 5개 · 문법 설명 (Markdown)", value=base.get("content", ""), height=250)
+            draft = st.text_area("내가 작성한 영어", value=base.get("draft", ""))
+            feedback = st.text_area("피드백 (Markdown)", value=base.get("feedback", ""))
+            save = st.form_submit_button("저장", type="primary")
+        if save:
+            if not all(x.strip() for x in [pattern, korean, content]):
+                st.warning("패턴, 한국어 문제, 학습 내용을 입력해 주세요.")
+            else:
+                with get_connection() as conn:
+                    conn.execute("""INSERT INTO everyday_expressions VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(study_date) DO UPDATE SET pattern=excluded.pattern,
+                        korean=excluded.korean, content=excluded.content,
+                        draft=excluded.draft, feedback=excluded.feedback""",
+                        (study_day.isoformat(), pattern, korean, content, draft, feedback))
+                st.session_state.everyday_selected = study_day.isoformat()
+                st.rerun()
+
 with st.sidebar:
     st.title("🗣️ Natural English Lab")
     st.caption("한국어로 생각하고, 자연스러운 영어로 말하기")
     page = st.radio(
         "메뉴",
-        ["문장 학습", "나의 학습장", "API 사용량", "사용 안내"],
+        ["문장 학습", "Everyday Expression", "나의 학습장", "API 사용량", "사용 안내"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -728,6 +753,9 @@ if page == "문장 학습":
 # ---------------------------------------------------------
 # 페이지 2: 학습장
 # ---------------------------------------------------------
+elif page == "Everyday Expression":
+    everyday_expression_page()
+
 elif page == "나의 학습장":
     st.title("📚 나의 학습장")
     st.write("저장한 영어 문장과 예문을 다시 확인할 수 있습니다.")
