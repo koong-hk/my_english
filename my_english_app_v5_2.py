@@ -647,7 +647,10 @@ def everyday_expression_page():
             )
             st.markdown("<style>" + marker_styles + "</style>", unsafe_allow_html=True)
             for col, name in zip(st.columns(7, gap="small"), ["월", "화", "수", "목", "금", "토", "일"]):
-                col.markdown(f"**{name}**")
+                col.markdown(
+                    f"<div style='text-align:center; font-weight:700;'>{name}</div>",
+                    unsafe_allow_html=True,
+                )
             for week in calendar.monthcalendar(year, month_number):
                 for col, day in zip(st.columns(7, gap="small"), week):
                     if day:
