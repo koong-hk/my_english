@@ -39,6 +39,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+with st.sidebar:
+    st.title("🗣️ Natural English Lab")
+    st.caption("한국어로 생각하고, 자연스러운 영어로 말하기")
+
 from family_login import require_family_login
 FAMILY_ACCOUNT = require_family_login()
 if FAMILY_ACCOUNT != "father":
@@ -679,13 +683,27 @@ def everyday_expression_page():
                 st.rerun()
 
 with st.sidebar:
-    st.title("🗣️ Natural English Lab")
-    st.caption("한국어로 생각하고, 자연스러운 영어로 말하기")
-    page = st.radio(
-        "메뉴",
-        ["문장 학습", "Everyday Expression", "이전 Everyday 기록", "나의 학습장", "API 사용량", "사용 안내"],
-        label_visibility="collapsed",
+    st.divider()
+    st.markdown(
+        "<style>"
+        ".st-key-sidebar_navigation [role='radiogroup'] {gap: 14px;}"
+        ".st-key-sidebar_navigation [role='radiogroup'] label {"
+        "min-height: 38px; padding-top: 5px; padding-bottom: 5px;}"
+        "</style>", unsafe_allow_html=True,
     )
+    with st.container(key="sidebar_navigation"):
+        page = st.radio(
+            "메뉴",
+            [
+                "문장 학습",
+                "Everyday Expression",
+                "이전 Everyday 기록",
+                "나의 학습장",
+                # "API 사용량",
+                "사용 안내",
+            ],
+            label_visibility="collapsed",
+        )
     st.divider()
     st.caption(f"현재 버전: {APP_VERSION}")
 
@@ -922,17 +940,17 @@ elif page == "나의 학습장":
 # ---------------------------------------------------------
 # 페이지 3: API 사용량
 # ---------------------------------------------------------
-elif page == "API 사용량":
-    st.title("📊 API 사용량 및 비용 관리")
-    usage = monthly_usage()
-    remaining = max(0.0, MONTHLY_API_BUDGET_USD - usage["cost"])
-    daily_calls = count_api_calls_today()
-    a, b, c, d = st.columns(4)
-    a.metric("오늘 API 요청", f"{daily_calls} / {DAILY_API_LIMIT}")
-    b.metric("이번 달 호출", f"{usage['calls']:,}회")
-    c.metric("이번 달 추정 사용액", f"${usage['cost']:.4f}")
-    d.metric("설정 예산 잔액", f"${remaining:.4f}")
-    st.progress(min(1.0, usage["cost"] / MONTHLY_API_BUDGET_USD))
+# elif page == "API 사용량":
+#     st.title("📊 API 사용량 및 비용 관리")
+#     usage = monthly_usage()
+#     remaining = max(0.0, MONTHLY_API_BUDGET_USD - usage["cost"])
+#     daily_calls = count_api_calls_today()
+#     a, b, c, d = st.columns(4)
+#     a.metric("오늘 API 요청", f"{daily_calls} / {DAILY_API_LIMIT}")
+#     b.metric("이번 달 호출", f"{usage['calls']:,}회")
+#     c.metric("이번 달 추정 사용액", f"${usage['cost']:.4f}")
+#     d.metric("설정 예산 잔액", f"${remaining:.4f}")
+#     st.progress(min(1.0, usage["cost"] / MONTHLY_API_BUDGET_USD))
 
 # ---------------------------------------------------------
 # 페이지 4: 사용 안내
