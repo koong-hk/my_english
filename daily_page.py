@@ -9,6 +9,57 @@ import streamlit as st
 from daily_service import DailyService, korean_today
 
 
+def render_lesson(lesson):
+    st.markdown('**자연스러운 구어체**')
+    st.write(lesson['natural'])
+    st.markdown('**격식 있는 표현**')
+    st.write(lesson['formal'])
+    parts = re.split(r'(\[[^\[\]]+\])', lesson['pattern'])
+    markup = ''.join("<span style='color:" + ('#dc2626' if p.startswith('[') else '#15803d')
+                     + "'>" + html.escape(p) + '</span>' for p in parts)
+    st.markdown(markup, unsafe_allow_html=True)
+    st.caption('초록색은 고정 부분, 빨간색은 교체 부분입니다.')
+    st.write(lesson['pattern_meaning'])
+    st.write(lesson['explanation'])
+    for i, example in enumerate(lesson['examples'], 1):
+        st.write(f"{i}. {example['english']}")
+        st.caption(example['korean'])
+    for note in lesson['grammar']:
+        st.write(note)
+
+
+def conversation_lesson(submission):
+    feedback = submission.get('feedback') or {}
+    if not isinstance(feedback, dict) or feedback.get('source') != 'chatgpt_conversation':
+        return None
+    lesson = feedback.get('lesson')
+    required = ('korean', 'natural', 'formal', 'pattern', 'pattern_meaning', 'explanation', 'examples', 'grammar')
+    return lesson if isinstance(lesson, dict) and all(key in lesson for key in required) else None
+
+
+def build_record_rows(lessons, submissions):
+    result = [dict(row, conversation_id='') for row in lessons]
+    for submission in submissions:
+        lesson = conversation_lesson(submission)
+        if lesson:
+            result.append({'study_date': submission['study_date'], 'korean': lesson['korean'],
+                           'pattern': lesson['pattern'], 'conversation_id': submission['id']})
+    return sorted(result, key=lambda row: row['study_date'], reverse=True)
+
+
+def render_feedback(submission):
+    st.write(submission['draft'])
+    feedback = submission.get('feedback')
+    if feedback:
+        st.write(feedback['assessment'])
+        st.success(feedback['corrected'])
+        st.write(feedback['explanation'])
+        for suggestion in feedback['suggestions']:
+            st.write(suggestion)
+    else:
+        st.info('답변이 저장되었습니다. 첨삭이 실패했다면 같은 답변을 다시 제출해 주세요.')
+
+
 def render_daily_page():
     config = dict(os.environ)
     try:
@@ -37,18 +88,21 @@ def render_daily_page():
         dates = {r['study_date'] for r in month_rows}
         # A marker represents this account's submitted study record.
         learned_dates = set()
+        month_submissions = []
         offset = 0
         while True:
             batch = service.rows(
-                'english_submissions', select='study_date', profile_id='eq.' + profile,
+                'english_submissions', select='id,study_date,draft,feedback,created_at', profile_id='eq.' + profile,
                 study_date='gte.' + month + '-01',
                 **{'and': f'(study_date.lt.{date(year + number // 12, number % 12 + 1, 1).isoformat()})'},
                 order='study_date.asc,id.asc', offset=str(offset), limit='500',
             )
+            month_submissions.extend(batch)
             learned_dates.update(r['study_date'] for r in batch)
             if len(batch) < 500:
                 break
             offset += len(batch)
+        month_rows = build_record_rows(month_rows, month_submissions)
         st.markdown(
             "<style>"
             ".st-key-compact_daily_calendar [data-testid='stHorizontalBlock'] {gap: 2px;}"
@@ -69,10 +123,7 @@ def render_daily_page():
                 )
                 st.markdown('<style>' + marker_styles + '</style>', unsafe_allow_html=True)
                 for col, name in zip(st.columns(7, gap='small'), ['월', '화', '수', '목', '금', '토', '일']):
-                    col.markdown(
-                        f"<div style='text-align:center; font-weight:700;'>{name}</div>",
-                        unsafe_allow_html=True,
-                    )
+                    col.markdown(f'**{name}**')
                 for week in calendar.monthcalendar(year, number):
                     for col, day in zip(st.columns(7, gap='small'), week):
                         if day:
@@ -82,6 +133,7 @@ def render_daily_page():
                                     if st.button(str(day), key='cloud_' + iso,
                                                  use_container_width=True):
                                         st.session_state.cloud_selected = iso
+                                        st.session_state.cloud_conversation_id = ""
                 st.markdown(
                     '<span style="display:inline-block;width:6px;height:6px;'
                     'border-radius:50%;background:#2563eb;margin-right:6px"></span>'
@@ -107,12 +159,26 @@ def render_daily_page():
                     st.session_state[selection_key] = chosen
                     if chosen and chosen[0] < len(month_rows):
                         st.session_state.cloud_selected = month_rows[chosen[0]]['study_date']
+                        st.session_state.cloud_conversation_id = month_rows[chosen[0]]['conversation_id']
             if not month_rows:
                 st.info('이달에 생성된 문제가 없습니다. GitHub Actions 실행 상태를 확인해 주세요.')
         selected = st.session_state.get('cloud_selected', '')
         if not selected.startswith(month):
             selected = month_rows[0]['study_date'] if month_rows else ''
-        if selected in dates:
+        conversation_id = st.session_state.get('cloud_conversation_id', '')
+        conversation = next((row for row in month_submissions
+                             if row['id'] == conversation_id and row['study_date'] == selected
+                             and conversation_lesson(row)), None)
+        if conversation:
+            st.subheader(selected + ' · 대화에서 학습한 표현')
+            lesson = conversation_lesson(conversation)
+            st.write(lesson['korean'])
+            with st.expander('정답 · 핵심 패턴 · 예문 · 문법 설명'):
+                render_lesson(lesson)
+            st.markdown('**내 답변과 피드백**')
+            with st.container(border=True):
+                render_feedback(conversation)
+        elif selected in dates:
             record = service.rows('english_lessons', study_date='eq.' + selected)[0]
             lesson = record['lesson']
             st.subheader(selected)
@@ -128,37 +194,17 @@ def render_daily_page():
                 else:
                     st.info('처리 중인 답변입니다. 잠시 후 기록을 새로고침해 주세요.')
             with st.expander('정답 · 핵심 패턴 · 예문 · 문법 설명'):
-                st.markdown('**자연스러운 구어체**')
-                st.write(lesson['natural'])
-                st.markdown('**격식 있는 표현**')
-                st.write(lesson['formal'])
-                parts = re.split(r'(\[[^\[\]]+\])', lesson['pattern'])
-                markup = ''.join("<span style='color:" + ('#dc2626' if p.startswith('[') else '#15803d')
-                                 + "'>" + html.escape(p) + '</span>' for p in parts)
-                st.markdown(markup, unsafe_allow_html=True)
-                st.caption('초록색은 고정 부분, 빨간색은 교체 부분입니다.')
-                st.write(lesson['pattern_meaning'])
-                st.write(lesson['explanation'])
-                for i, example in enumerate(lesson['examples'], 1):
-                    st.write(f"{i}. {example['english']}")
-                    st.caption(example['korean'])
-                for note in lesson['grammar']:
-                    st.write(note)
+                render_lesson(lesson)
             st.markdown('**내 답변과 피드백**')
             submissions = service.rows('english_submissions', study_date='eq.' + selected,
                                        order='created_at.desc', profile_id='eq.' + profile)
             for submission in submissions:
+                # Conversation lessons have their own list entry and must not appear
+                # as an answer to the unrelated daily question.
+                if conversation_lesson(submission):
+                    continue
                 with st.container(border=True):
-                    st.write(submission['draft'])
-                    feedback = submission.get('feedback')
-                    if feedback:
-                        st.write(feedback['assessment'])
-                        st.success(feedback['corrected'])
-                        st.write(feedback['explanation'])
-                        for suggestion in feedback['suggestions']:
-                            st.write(suggestion)
-                    else:
-                        st.info('답변이 저장되었습니다. 첨삭이 실패했다면 같은 답변을 다시 제출해 주세요.')
+                    render_feedback(submission)
         if st.button('기록 새로고침'):
             st.rerun()
     except Exception as exc:
