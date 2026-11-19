@@ -47,15 +47,22 @@ def build_record_rows(lessons, submissions):
     return sorted(result, key=lambda row: row['study_date'], reverse=True)
 
 
+def feedback_linebreaks(text):
+    # Markdown hard breaks keep each sentence on its own line while allowing
+    # long sentences to wrap naturally on narrow screens.
+    lines = re.split(r'(?<=[.!?。！？])\s+|\n+', str(text).strip())
+    return '  \n'.join(line.strip() for line in lines if line.strip())
+
+
 def render_feedback(submission):
     st.write(submission['draft'])
     feedback = submission.get('feedback')
     if feedback:
-        st.write(feedback['assessment'])
-        st.success(feedback['corrected'])
-        st.write(feedback['explanation'])
+        st.markdown(feedback_linebreaks(feedback['assessment']))
+        st.success(feedback_linebreaks(feedback['corrected']))
+        st.markdown(feedback_linebreaks(feedback['explanation']))
         for suggestion in feedback['suggestions']:
-            st.write(suggestion)
+            st.markdown(feedback_linebreaks(suggestion))
     else:
         st.info('답변이 저장되었습니다. 첨삭이 실패했다면 같은 답변을 다시 제출해 주세요.')
 
